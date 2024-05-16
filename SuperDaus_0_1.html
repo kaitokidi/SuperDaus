@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive Image Grid with Scoring</title>
+<style>
+    body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+    }
+    #scoreDisplay {
+        margin-top: 20px;
+        font-size: 24px;
+        color: Black;
+    }
+    #dotsContainer, #blackDots {
+        margin: 10px;
+    }
+	@keyframes fadeIn {
+        from { opacity: 0; transform: scale(0); }
+        to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes fadeOut {
+        from { opacity: 1; transform: scale(1); }
+        to { opacity: 0; transform: scale(0); }
+    }
+    .dot, .black-dot {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        margin: 2px;
+        animation: fadeIn 0.3s;
+    }
+    .dot {
+        background-color: yellow;
+        border: 2px solid black;
+    }
+    .black-dot {
+        background-color: black;
+        border: 2px solid yellow;
+    }
+    #imageGrid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .grid-item {
+        position: relative;
+        width: 100px;
+        height: 100px;
+        border: 1px solid #ccc;
+        cursor: pointer;
+        overflow: hidden;
+    }
+    .grid-item img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .selected {
+        border-color: yellow;
+        border-width: 5px;
+    }
+    button {
+        padding: 10px 20px;
+        font-size: 16px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    button:hover {
+        background-color: #45a049;
+    }
+</style>
+</head>
+<body>
+<div id="dotsContainer">
+    <div id="yellowDots">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span the="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span the="dot"></span>
+    </div>
+</div>
+<div id="imageGrid"></div>
+<button onclick="randomizeNonSelectedImages()">Randomize Non-Selected Images</button>
+<div id="blackDots">
+    <span class="black-dot"></span>
+    <span class="black-dot"></span>
+    <span the="black-dot"></span>
+</div>
+<div id="scoreDisplay">Score: 0</div>
+
+<script>
+    const images = {
+        'cap': ['capR', 'capB', 'capV'],
+        'vertical': ['verticalVR', 'verticalRV', 'verticalVB', 'verticalBV', 'verticalBR', 'verticalRB'],
+        'horizontal': ['horizontalVR', 'horizontalRV', 'horizontalVB', 'horizontalBV', 'horizontalBR', 'horizontalRB'],
+        'diagAsc': ['diagAscVR', 'diagAscRV', 'diagAscVB', 'diagAscBV', 'diagAscBR', 'diagAscRB'],
+        'diagDec': ['diagDecVR', 'diagDecRV', 'diagDecVB', 'diagDecBV', 'diagDecBR', 'diagDecRB'],
+    };
+
+    let gridItems = [];
+
+    function initializeGrid() {
+        const grid = document.getElementById('imageGrid');
+        gridItems = [];
+        for (let i = 0; i < 9; i++) {
+            const item = document.createElement('div');
+            item.classList.add('grid-item');
+            item.dataset.index = i; // Store index for easier calculation of neighbors
+
+            const topImage = document.createElement('img');
+            const bottomImage = document.createElement('img');
+            topImage.className = 'top-image';
+            bottomImage.className = 'bottom-image';
+
+            item.appendChild(bottomImage);
+            item.appendChild(topImage);
+            item.addEventListener('click', () => {
+                toggleSelection(item);
+                 // Update score on every click
+            });
+
+            grid.appendChild(item);
+            gridItems.push({item, topImage, bottomImage});
+        }
+        randomizeNonSelectedImages();
+    }
+
+    function toggleSelection(item) {
+        item.classList.toggle('selected');
+        item.style.animation = 'none';
+        item.offsetHeight; // trigger reflow
+        item.style.animation = null; // reset animation
+        if (item.classList.contains('selected')) {
+            removeADot('yellowDots');
+        } else {
+            addADot('yellowDots');
+        }
+    }
+
+    function randomizeNonSelectedImages() {
+        const nonSelectedItems = gridItems.filter(({item}) => !item.classList.contains('selected'));
+        nonSelectedItems.forEach(({topImage, bottomImage}) => {
+            animateImageChange(topImage, bottomImage);
+        });
+        removeADot('blackDots');
+		
+    }
+
+    function animateImageChange(topImage, bottomImage) {
+        let count = 0;
+        const maxIterations = 10; // Number of changes before settling on the final image
+
+        const intervalId = setInterval(() => {
+            if (count >= maxIterations) {
+                clearInterval(intervalId);
+                setFinalImage(topImage, bottomImage);
+            } else {
+                const randomTopKey = getRandomKey(images);
+                const randomBottomIndex = Math.floor(Math.random() * images[randomTopKey].length);
+                const randomBottomKey = images[randomTopKey][randomBottomIndex];
+                topImage.src = `images/${randomTopKey}.png`;
+                bottomImage.src = `images/${randomBottomKey}.png`;
+                count++;
+            }
+        }, 100); // Change image every 100 milliseconds
+    }
+
+    function setFinalImage(topImage, bottomImage) {
+        const keys = Object.keys(images);
+        const topImageKey = keys[Math.floor(Math.random() * keys.length)];
+        const bottomImageSet = images[topImageKey];
+        const bottomImageKey = bottomImageSet[Math.floor(Math.random() * bottomImageSet.length)];
+
+        topImage.src = `images/${topImageKey}.png`;
+        bottomImage.src = `images/${bottomImageKey}.png`;
+		
+		updateScore();
+    }
+
+    function getRandomKey(obj) {
+        const keys = Object.keys(obj);
+        return keys[Math.floor(Math.random() * keys.length)];
+    }
+
+    function removeADot(dotContainerId) {
+        const dotContainer = document.getElementById(dotContainerId);
+        if (dotContainer.children.length > 0) {
+            const dot = dotContainer.children[0];
+            dot.style.animation = 'fadeOut 0.3s forwards';
+            setTimeout(() => dotContainer.removeChild(dot), 300);
+        }
+    }
+
+    function addADot(dotContainerId) {
+        const dotContainer = document.getElementById(dotContainerId);
+        const newDot = document.createElement('span');
+        newDot.className = 'dot';
+        newDot.style.animation = 'fadeIn 0.3s';
+        dotContainer.appendChild(newDot);
+    }
+
+    function updateScore() {
+        let score = 0;
+        gridItems.forEach(({item, topImage, bottomImage}, idx) => {
+            score += countScore();
+        });
+        //document.getElementById('scoreDisplay').textContent = 'Score: ' + score;
+    }
+
+/*function countScore(){
+	
+	visited = [];
+	for image in _images: 
+		visitd.append(image);
+		let neighbours = getNeighbours(image);
+		for neighbour in neighbours:
+			let sideAtHome = getSideOfNeighbouringAtHome(image, neighbour)
+			let sideAtNeighbour = getSideOfNeighbouringAtNeighbour(image, neighbour)
+			let colorsAtHome = getColorsInSide(image,sideAtHome) 
+			let colorsAtNeighbour = getColorsInSide(image,sideAtNeighbour) 
+			
+			for color in colorsAtHome:
+				if color in colorsAt<Neighbour:
+					count = ContinueCounting(visited, neighbour)+1
+}*/
+
+// Utility to get neighbors given an index in a 3x3 grid
+function getNeighbours(index) {
+    let neighbours = [];
+    let row = Math.floor(index / 3);
+    let col = index % 3;
+
+    if (row > 0) neighbours.push(index - 3);  // top
+    if (row < 2) neighbours.push(index + 3);  // bottom
+    if (col > 0) neighbours.push(index - 1);  // left
+    if (col < 2) neighbours.push(index + 1);  // right
+
+    return neighbours;
+}
+
+// Simulating side retrieval, here simply returning "top" or "bottom" for demonstration
+function getSideOfNeighbouringAtHome(index, neighbourIndex) {
+    // For simplicity, assuming side determination logic here based on relative positions
+    if (neighbourIndex === index - 3) return "bottom";  // top neighbour
+    if (neighbourIndex === index + 3) return "top";    // bottom neighbour
+    if (neighbourIndex === index - 1) return "right";  // left neighbour
+    if (neighbourIndex === index + 1) return "left";   // right neighbour
+}
+
+// Assuming the neighbor relation is symmetrical
+function getSideOfNeighbouringAtNeighbour(index, neighbourIndex) {
+    return getSideOfNeighbouringAtHome(neighbourIndex, index);
+}
+
+// Function to extract color data from image sources
+function getColorsInSide(image, imageTop, side) {
+    // Mock function: Extracting last two characters from the image src as color identifiers
+    let src = image.src.split('/').pop().split('.')[0];
+    let first = src[src.length - 2]
+	let second = src[src.length - 1];
+
+	if (imageTop in images['cap']) return [second];
+	
+	let key = 'vertical';
+	if (imageTop in images[key] && side == "right") return [second]; 
+	if (imageTop in images[key] && side == "left") return [first]; 
+	if (imageTop in images[key] && side == "top") return [first,second]; 
+	if (imageTop in images[key] && side == "bottom") return [first,second]; 
+	
+	key = 'horizontal';
+	if (imageTop in images[key] && side == "right") return [first,second]; 
+	if (imageTop in images[key] && side == "left") return [first,second]; 
+	if (imageTop in images[key] && side == "top") return [first]; 
+	if (imageTop in images[key] && side == "bottom") return [second]; 
+	
+	key = 'diagAsc';
+	if (imageTop in images[key] && side == "right") return [second]; 
+	if (imageTop in images[key] && side == "left") return [first]; 
+	if (imageTop in images[key] && side == "top") return [first]; 
+	if (imageTop in images[key] && side == "bottom") return [second]; 
+
+	key = 'diagDec';
+	if (imageTop in images[key] && side == "right") return [second]; 
+	if (imageTop in images[key] && side == "left") return [first]; 
+	if (imageTop in images[key] && side == "top") return [second]; 
+	if (imageTop in images[key] && side == "bottom") return [first]; 
+}
+
+// Recursive counting function
+function continueCounting(visited, index) {
+    //if (visited.includes(index)) return 0;
+    //visited.push(index);
+    let score = 1;
+    let neighbours = getNeighbours(index);
+    neighbours.forEach(neighbourIndex => {
+	
+		if(!visited.includes(neighbourIndex)) {
+			visited.push(neighbourIndex);
+			
+			let sideAtHome = getSideOfNeighbouringAtHome(index, neighbourIndex);
+			let sideAtNeighbour = getSideOfNeighbouringAtNeighbour(index, neighbourIndex);
+			let colorsAtHome = getColorsInSide(gridItems[index].bottomImage, gridItems[index].topImage, sideAtHome);
+			let colorsAtNeighbour = getColorsInSide(gridItems[neighbourIndex].bottomImage, gridItems[index].topImage, sideAtNeighbour);
+			colorsAtHome.forEach(color => {
+				if (colorsAtNeighbour.includes(color)) {
+					score += continueCounting(visited, neighbourIndex);
+				}
+			});
+		}
+    });
+    return score;
+}
+
+// Main scoring function
+function countScore() {
+    let visited = [];
+    let score = 0;
+	biggestScores = [];
+    gridItems.forEach((item, index) => {
+		visited = []
+		score = 0;
+        if (!visited.includes(index)) {
+            visited.push(index);
+            score += continueCounting(visited, index);
+			biggestScores.push(score);
+			document.getElementById('scoreDisplay').textContent = 'SScore: ' + score;
+        }
+    });
+	return score;
+}
+
+// Ensure countScore is called appropriately within your system to update the score as needed.
+
+
+
+/*
+function countNeighbors(index, topImage, bottomImage) {
+    // Get the last two characters of the bottom image name to use as colors C1 and C2
+    const bottomImageName = bottomImage.src.split('/').pop().split('.')[0];
+    const C1 = bottomImageName.charAt(bottomImageName.length - 2);
+    const C2 = bottomImageName.charAt(bottomImageName.length - 1);
+
+    const row = Math.floor(index / 3);
+    const col = index % 3;
+    const neighbors = {};
+    if (row > 0) neighbors['top'] = index - 3; // Top
+    if (row < 2) neighbors['bottom'] = index + 3; // Bottom
+    if (col > 0) neighbors['left'] = index - 1; // Left
+    if (col < 2) neighbors['right'] = index + 1; // Right
+
+    const colorMap = {};
+    const topImageName = topImage.src.split('/').pop().split('.')[0];
+    if (topImageName.startsWith('cap')) {
+        Object.keys(neighbors).forEach(direction => colorMap[direction] = C2);
+    } else if (topImageName.startsWith('vertical')) {
+        ['top', 'left', 'bottom'].forEach(direction => colorMap[direction] = C2);
+        colorMap['right'] = C1;
+    } else if (topImageName.startsWith('horizontal')) {
+        ['bottom', 'left', 'right'].forEach(direction => colorMap[direction] = C2);
+        colorMap['top'] = C1;
+    } else if (topImageName.startsWith('diagAsc')) {
+        ['top', 'left'].forEach(direction => colorMap[direction] = C1);
+        ['right', 'bottom'].forEach(direction => colorMap[direction] = C2);
+    } else if (topImageName.startsWith('diagDec')) {
+        ['bottom', 'left'].forEach(direction => colorMap[direction] = C1);
+        ['right', 'top'].forEach(direction => colorMap[direction] = C2);
+    }
+
+    // Initialize scores map to track contiguous color group sizes
+    let scores = {};
+    Object.values(colorMap).forEach(color => {
+        if (!scores[color]) scores[color] = 0;
+    });
+
+    // Count contiguous neighbors with the same assigned color
+    Object.entries(neighbors).forEach(([direction, neighborIdx]) => {
+        const neighbor = gridItems[neighborIdx];
+        const neighborBottomImageName = neighbor.bottomImage.src.split('/').pop().split('.')[0];
+        const neighborColor = neighborBottomImageName.charAt(neighborBottomImageName.length - 1);
+
+        if (colorMap[direction] === neighborColor) {
+            scores[neighborColor]++;
+        }
+    });
+
+    // Return the highest score among the color groups
+    return Math.max(...Object.values(scores));
+}
+
+*/
+    function getPosition(nIdx, index) {
+        if (nIdx === index - 3) return 'top';
+        if (nIdx === index + 3) return 'bottom';
+        if (nIdx === index - 1) return 'left';
+        if (nIdx === index + 1) return 'right';
+    }
+
+    window.onload = initializeGrid;
+</script>
+</body>
+</html>
